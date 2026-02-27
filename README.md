@@ -14,7 +14,7 @@ VAULT is a free, browser-based projection mapping tool built for tabletop RPG pl
 - **Grid Calibration** — Click the 4 corners of any grid square and VAULT auto-detects the full grid, handling rotation and skew. Toggle overlay with adjustable opacity and color. Grid only appears in revealed areas when Fog of War is active. Each clip stores its own grid — switch maps and your calibration persists.
 - **Atmosphere FX** — Toggle Fog, Rain, Snow, Embers, Fireflies, and Torch Flicker effects with adjustable intensity. All effects overlay on the projected output.
 - **Video + Image support** — Load battle maps, animated scenes, static images, or video loops
-- **Two layers with 10 slots each** — Blend content (e.g., a map on Layer A + weather effects on Layer B). Clips auto-activate when added.
+- **Two layers with 10 slots each** — Blend content (e.g., a map on Layer B + weather effects on Layer A). Layer A renders on top. Clips auto-activate when added.
 - **Color presets** — Neutral, Warm, Cool, Sunset, Neon, Moody, Vintage, Ice — with adjustable strength
 - **Color controls** — Brightness, contrast, saturation, hue rotation, and color tint with picker
 - **Transform** — Scale, rotate, and playback speed controls
@@ -29,7 +29,7 @@ VAULT is a free, browser-based projection mapping tool built for tabletop RPG pl
 
 ### Quick Start
 1. Open [vaultmapping.netlify.app](https://vaultmapping.netlify.app/) (or open `index.html` locally)
-2. Click a slot in Layer A and load an image or video
+2. Click a slot in Layer B and load an image or video
 3. Click **⬡ Output** and drag the window to your projector
 4. Click **◈ Map** and drag the corners to fit your surface
 5. Hit **✓ Save & Close** — done!
@@ -50,7 +50,7 @@ VAULT is a single HTML file with zero dependencies. To run it locally:
 - **Calibrate the grid** — click ⊞ Calibrate Grid, then click the 4 corners of one grid square. VAULT auto-detects the full grid including rotation and skew. Each map remembers its own grid.
 - **Fog of War** — Enable in the sidebar, click Paint, and brush over areas to reveal as your party explores. Toggle Cover mode to hide areas again. Each map keeps its own fog state.
 - Use the **Preview window** on a wall-mounted TV so players can see the map without projection distortion
-- Use Layer B for ambient effects (fog, fire, weather) blended over your map
+- Use **Layer A** for ambient effects (fog, fire, weather) blended over your map on Layer B
 - Use color presets to set mood — "Moody" for dungeons, "Warm" for taverns
 - **Save your project** so mapping, fog, grid, and zoom persist between sessions
 
