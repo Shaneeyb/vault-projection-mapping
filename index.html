@@ -178,6 +178,24 @@
   .reveal-poly-dot{position:absolute;width:8px;height:8px;background:var(--accent);border-radius:50%;pointer-events:none;z-index:28;margin:-4px 0 0 -4px;}
   .reveal-poly-dot.cover-mode{background:var(--accent2);}
   .token-tooltip{position:fixed;background:rgba(0,0,0,.92);color:#fff;font-size:10px;padding:5px 10px;border-radius:5px;pointer-events:none;z-index:9999;white-space:nowrap;border:1px solid rgba(255,255,255,.15);animation:ttFade 5s forwards;}
+  .token-modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:10000;display:flex;align-items:center;justify-content:center;}
+  .token-modal{background:#1a1a2e;border:1px solid rgba(255,255,255,.12);border-radius:10px;padding:20px 22px;width:280px;max-width:92vw;display:flex;flex-direction:column;gap:12px;}
+  .token-modal h3{margin:0;font-size:13px;color:var(--fg);font-weight:600;letter-spacing:.5px;}
+  .token-modal label{font-size:10px;color:var(--muted);margin-bottom:2px;display:block;}
+  .token-modal input[type=text]{width:100%;box-sizing:border-box;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.12);border-radius:5px;color:var(--fg);font-size:11px;padding:6px 8px;outline:none;}
+  .token-modal input[type=text]:focus{border-color:var(--accent);}
+  .token-img-upload-area{border:1.5px dashed rgba(255,255,255,.18);border-radius:7px;padding:12px 10px;text-align:center;cursor:pointer;transition:border-color .2s,background .2s;background:rgba(255,255,255,.02);}
+  .token-img-upload-area:hover{border-color:var(--accent);background:rgba(0,230,118,.04);}
+  .token-img-upload-area p{margin:0;font-size:9.5px;color:var(--muted);line-height:1.5;}
+  .token-img-upload-area p.hint{font-size:8.5px;color:rgba(255,255,255,.3);margin-top:5px;}
+  .token-img-preview-wrap{display:flex;justify-content:center;margin-top:4px;}
+  .token-img-circle-preview{width:60px;height:60px;border-radius:50%;object-fit:cover;border:2px solid var(--accent);display:block;}
+  .token-modal-btns{display:flex;gap:8px;justify-content:flex-end;margin-top:4px;}
+  .token-modal-btns button{font-size:10px;padding:6px 14px;border-radius:5px;border:none;cursor:pointer;font-weight:600;}
+  .token-modal-btns .btn-cancel{background:rgba(255,255,255,.07);color:var(--muted);}
+  .token-modal-btns .btn-cancel:hover{background:rgba(255,255,255,.12);}
+  .token-modal-btns .btn-add{background:var(--accent);color:#000;}
+  .token-modal-btns .btn-add:hover{filter:brightness(1.1);}
   @keyframes ttFade{0%{opacity:1}70%{opacity:1}100%{opacity:0}}
   .media-loading-overlay{position:absolute;top:0;left:0;right:0;bottom:0;display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:30;pointer-events:none;}
   .media-loading-overlay .ml-spinner{width:40px;height:40px;border:3px solid rgba(0,230,118,.15);border-top:3px solid var(--accent);border-radius:50%;animation:spin 1s linear infinite;margin-bottom:12px;}
@@ -1075,8 +1093,10 @@ function updateTokenVisibility(){
   tokenSection.classList.toggle('visible',hasContent);
 }
 
-function addToken(name,color,size){
-  const t={id:++tokenIdCounter,x:.5,y:.5,name:name||'Token',color:color||tokenColors[tokens.length%tokenColors.length],size:size||20,playerVisible:true};
+const tokenImageCache={};
+function addToken(name,color,size,imageDataUrl){
+  const t={id:++tokenIdCounter,x:.5,y:.5,name:name||'Token',color:color||tokenColors[tokens.length%tokenColors.length],size:size||20,playerVisible:true,showName:true,borderOff:false,imageDataUrl:imageDataUrl||null};
+  if(t.imageDataUrl){const img=new Image();img.src=t.imageDataUrl;tokenImageCache[t.id]=img;}
   tokens.push(t);
   rebuildTokenList();
   return t;
@@ -1090,13 +1110,62 @@ function removeToken(id){
 function rebuildTokenList(){
   tokenListEl.innerHTML='';
   tokens.forEach(t=>{
+    if(t.showName===undefined)t.showName=true;
     const row=document.createElement('div');row.className='token-item';row.dataset.id=t.id;
-    const sw=document.createElement('input');sw.type='color';sw.value=t.color;sw.className='token-swatch';sw.style.cssText='width:14px;height:14px;border:none;padding:0;cursor:pointer;background:none;';
-    sw.addEventListener('input',()=>{t.color=sw.value;});
+    // Image thumbnail (if image present)
+    if(t.imageDataUrl){
+      const thumb=document.createElement('img');thumb.src=t.imageDataUrl;
+      thumb.style.cssText='width:14px;height:14px;border-radius:50%;object-fit:cover;flex-shrink:0;box-sizing:border-box;border:2px solid '+t.color+';';
+      thumb.id='token-thumb-'+t.id;
+      row.appendChild(thumb);
+    }
+    // Color picker — always shown; for image tokens it controls the border color
+    if(t.borderOff===undefined)t.borderOff=false;
+    const colorInput=document.createElement('input');colorInput.type='color';colorInput.value=t.color;
+    colorInput.className='token-swatch';colorInput.title=t.imageDataUrl?'Border color':'Token color';
+    colorInput.style.cssText='width:14px;height:14px;border:none;padding:0;cursor:pointer;background:none;flex-shrink:0;'+(t.imageDataUrl&&t.borderOff?'opacity:.35;':'');
+    colorInput.addEventListener('input',()=>{
+      t.color=colorInput.value;
+      if(t.imageDataUrl){
+        // Re-enable border when user picks a color
+        t.borderOff=false;colorInput.style.opacity='';
+        if(noBorderBtn){noBorderBtn.className='token-vis off';noBorderBtn.title='Hide border';}
+        const th=document.getElementById('token-thumb-'+t.id);if(th)th.style.borderColor=t.color;
+      }
+    });
+    row.appendChild(colorInput);
+    // No-border toggle (image tokens only)
+    let noBorderBtn=null;
+    if(t.imageDataUrl){
+      noBorderBtn=document.createElement('span');
+      noBorderBtn.textContent='⊘';
+      noBorderBtn.title=t.borderOff?'Border hidden — click to restore':'Hide border';
+      noBorderBtn.className='token-vis '+(t.borderOff?'on':'off');
+      noBorderBtn.style.fontSize='10px';
+      noBorderBtn.addEventListener('click',()=>{
+        t.borderOff=!t.borderOff;
+        noBorderBtn.className='token-vis '+(t.borderOff?'on':'off');
+        noBorderBtn.title=t.borderOff?'Border hidden — click to restore':'Hide border';
+        colorInput.style.opacity=t.borderOff?'0.35':'';
+        const th=document.getElementById('token-thumb-'+t.id);
+        if(th)th.style.borderColor=t.borderOff?'transparent':t.color;
+      });
+      row.appendChild(noBorderBtn);
+    }
+    // Name
     const nm=document.createElement('span');nm.className='token-name';nm.textContent=t.name;
     nm.addEventListener('dblclick',()=>{const n=prompt('Rename token:',t.name);if(n){t.name=n;nm.textContent=n;}});
+    row.appendChild(nm);
+    // Size
     const sz=document.createElement('input');sz.type='range';sz.className='token-size';sz.min='8';sz.max='60';sz.value=t.size;
     sz.addEventListener('input',()=>{t.size=Number(sz.value);});
+    row.appendChild(sz);
+    // Name toggle
+    const nameToggle=document.createElement('span');nameToggle.className='token-vis '+(t.showName?'on':'off');
+    nameToggle.textContent='T';nameToggle.title='Toggle name label';nameToggle.style.fontWeight='bold';
+    nameToggle.addEventListener('click',()=>{t.showName=!t.showName;nameToggle.className='token-vis '+(t.showName?'on':'off');});
+    row.appendChild(nameToggle);
+    // Visibility toggle
     const vis=document.createElement('span');vis.className='token-vis '+(t.playerVisible?'on':'off');vis.textContent=t.playerVisible?'👁':'👁‍🗨';vis.title='Toggle player visibility';
     vis.addEventListener('click',(ev)=>{
       t.playerVisible=!t.playerVisible;vis.className='token-vis '+(t.playerVisible?'on':'off');vis.textContent=t.playerVisible?'👁':'👁‍🗨';
@@ -1108,9 +1177,11 @@ function rebuildTokenList(){
       document.body.appendChild(tip);
       setTimeout(()=>{if(tip.parentNode)tip.remove();},5000);
     });
+    row.appendChild(vis);
+    // Delete
     const del=document.createElement('span');del.className='token-del';del.textContent='×';
     del.addEventListener('click',()=>removeToken(t.id));
-    row.appendChild(sw);row.appendChild(nm);row.appendChild(sz);row.appendChild(vis);row.appendChild(del);
+    row.appendChild(del);
     tokenListEl.appendChild(row);
   });
 }
@@ -1132,19 +1203,41 @@ function drawTokens(tc,W,H,showAll){
     }
     const cx=dr.x+sx*dr.w,cy=dr.y+sy*dr.h;
     const r=t.size*dr.w/800;
-    // Circle
     tc.save();
     tc.beginPath();tc.arc(cx,cy,r,0,Math.PI*2);
-    tc.fillStyle=t.color;tc.globalAlpha=.85;tc.fill();
-    tc.lineWidth=2;tc.strokeStyle='rgba(0,0,0,.5)';tc.stroke();
-    // Label
-    tc.globalAlpha=1;
-    const fontSize=Math.max(8,r*.8);
-    tc.font='bold '+Math.round(fontSize)+'px Inter,system-ui,sans-serif';
-    tc.textAlign='center';tc.textBaseline='middle';
-    tc.fillStyle='#fff';tc.shadowColor='rgba(0,0,0,.7)';tc.shadowBlur=3;
-    tc.fillText(t.name,cx,cy);
-    tc.shadowBlur=0;
+    const cachedImg=tokenImageCache[t.id];
+    if(t.imageDataUrl&&cachedImg&&cachedImg.complete&&cachedImg.naturalWidth>0){
+      // Draw image clipped to circle
+      tc.save();tc.clip();
+      tc.drawImage(cachedImg,cx-r,cy-r,r*2,r*2);
+      tc.restore();
+      // Color border (3px, using chosen color) — skipped when borderOff
+      if(!t.borderOff){tc.lineWidth=3;tc.strokeStyle=t.color;tc.stroke();}
+      // Name below circle
+      if(t.showName){
+        tc.globalAlpha=1;
+        const fontSize=Math.max(8,r*.75);
+        tc.font='bold '+Math.round(fontSize)+'px Inter,system-ui,sans-serif';
+        tc.textAlign='center';tc.textBaseline='top';
+        tc.fillStyle='#fff';tc.shadowColor='rgba(0,0,0,.9)';tc.shadowBlur=4;
+        tc.fillText(t.name,cx,cy+r+3);
+        tc.shadowBlur=0;
+      }
+    } else {
+      // Fallback: colored circle
+      tc.fillStyle=t.color;tc.globalAlpha=.85;tc.fill();
+      tc.lineWidth=2;tc.strokeStyle='rgba(0,0,0,.5)';tc.stroke();
+      // Name inside circle
+      if(t.showName){
+        tc.globalAlpha=1;
+        const fontSize=Math.max(8,r*.8);
+        tc.font='bold '+Math.round(fontSize)+'px Inter,system-ui,sans-serif';
+        tc.textAlign='center';tc.textBaseline='middle';
+        tc.fillStyle='#fff';tc.shadowColor='rgba(0,0,0,.7)';tc.shadowBlur=3;
+        tc.fillText(t.name,cx,cy);
+        tc.shadowBlur=0;
+      }
+    }
     // DM-only indicator
     if(!t.playerVisible&&showAll){
       tc.globalAlpha=.6;tc.setLineDash([3,3]);tc.strokeStyle='#ffaa00';tc.lineWidth=1.5;
@@ -1163,7 +1256,11 @@ function loadTokensForClip(){
   const k=fogKey();
   if(!k){tokens=[];rebuildTokenList();return;}
   const stored=tokenStore[k];
-  if(stored){tokens=JSON.parse(JSON.stringify(stored));tokenIdCounter=Math.max(tokenIdCounter,...tokens.map(t=>t.id),0);}
+  if(stored){
+    tokens=JSON.parse(JSON.stringify(stored));
+    tokenIdCounter=Math.max(tokenIdCounter,...tokens.map(t=>t.id),0);
+    tokens.forEach(t=>{if(t.imageDataUrl&&!tokenImageCache[t.id]){const img=new Image();img.src=t.imageDataUrl;tokenImageCache[t.id]=img;}});
+  }
   else{tokens=[];}
   rebuildTokenList();
 }
@@ -1206,12 +1303,7 @@ document.addEventListener('mouseup',()=>{
   if(draggingToken){draggingToken=null;previewArea.style.cursor='pointer';}
 });
 
-// Add token button
-document.getElementById('token-add').addEventListener('click',()=>{
-  const name=prompt('Token name:','Token '+(tokens.length+1));
-  if(!name)return;
-  addToken(name);
-});
+// Add token button — handled by openTokenModal() defined at bottom of script
 
 // Copy tokens to another clip
 document.getElementById('token-copy').addEventListener('click',()=>{
@@ -1818,6 +1910,79 @@ Laptop (VAULT controls) → Projector → Table Surface<br>
 w.document.close();
 });
 
+
+// ═══════════════════════════════════════
+//  TOKEN ADD MODAL
+// ═══════════════════════════════════════
+(function(){
+  let pendingImageDataUrl=null;
+
+  function openTokenModal(){
+    pendingImageDataUrl=null;
+    const overlay=document.createElement('div');
+    overlay.className='token-modal-overlay';
+    overlay.innerHTML=`
+      <div class="token-modal">
+        <h3>Add Token</h3>
+        <div>
+          <label>Token Name</label>
+          <input type="text" id="tmod-name" placeholder="Token ${tokens.length+1}" value="Token ${tokens.length+1}" autocomplete="off">
+        </div>
+        <div>
+          <label>Token Image <span style="color:rgba(255,255,255,.3);font-weight:400;">(optional)</span></label>
+          <div class="token-img-upload-area" id="tmod-upload-area">
+            <p>Click to upload an image</p>
+            <p class="hint">A round or circle image works best.<br>Square/rectangular images will have their edges cropped to fit a circle.</p>
+          </div>
+          <div class="token-img-preview-wrap" id="tmod-preview-wrap" style="display:none;">
+            <img class="token-img-circle-preview" id="tmod-preview-img" src="" alt="preview">
+          </div>
+        </div>
+        <div class="token-modal-btns">
+          <button class="btn-cancel" id="tmod-cancel">Cancel</button>
+          <button class="btn-add" id="tmod-add">Add Token</button>
+        </div>
+      </div>`;
+    document.body.appendChild(overlay);
+
+    const nameInput=overlay.querySelector('#tmod-name');
+    const uploadArea=overlay.querySelector('#tmod-upload-area');
+    const previewWrap=overlay.querySelector('#tmod-preview-wrap');
+    const previewImg=overlay.querySelector('#tmod-preview-img');
+    const fileInput=document.createElement('input');
+    fileInput.type='file';fileInput.accept='image/*';fileInput.style.display='none';
+    document.body.appendChild(fileInput);
+
+    uploadArea.addEventListener('click',()=>fileInput.click());
+    fileInput.addEventListener('change',()=>{
+      const file=fileInput.files[0];if(!file)return;
+      const reader=new FileReader();
+      reader.onload=e=>{
+        pendingImageDataUrl=e.target.result;
+        previewImg.src=pendingImageDataUrl;
+        previewWrap.style.display='flex';
+        uploadArea.querySelector('p:first-child').textContent='Image selected — click to change';
+      };
+      reader.readAsDataURL(file);
+    });
+
+    nameInput.focus();nameInput.select();
+
+    function doAdd(){
+      const name=nameInput.value.trim()||('Token '+(tokens.length+1));
+      addToken(name,null,20,pendingImageDataUrl);
+      close();
+    }
+    function close(){overlay.remove();fileInput.remove();}
+
+    overlay.querySelector('#tmod-cancel').addEventListener('click',close);
+    overlay.querySelector('#tmod-add').addEventListener('click',doAdd);
+    overlay.addEventListener('click',e=>{if(e.target===overlay)close();});
+    nameInput.addEventListener('keydown',e=>{if(e.key==='Enter')doAdd();if(e.key==='Escape')close();});
+  }
+
+  document.getElementById('token-add').addEventListener('click',openTokenModal);
+})();
 </script>
 </body>
 </html>
